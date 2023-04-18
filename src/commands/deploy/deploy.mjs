@@ -2,6 +2,7 @@
 import { stat } from 'fs/promises'
 import { basename, resolve } from 'path'
 import { cwd, env } from 'process'
+import { Transform } from "stream"
 
 import { runCoreSteps } from '@netlify/build'
 import { restoreConfig, updateConfig } from '@netlify/config'
@@ -178,30 +179,36 @@ const validateFolders = async ({ deployFolder, functionsFolder }) => {
   return { deployFolderStat, functionsFolderStat }
 }
 
+// TODO: use promises instead of callbacks
+/* eslint-disable promise/prefer-await-to-callbacks */
 const getDeployFilesFilter = ({ deployFolder, site }) => {
   // site.root === deployFolder can happen when users run `netlify deploy --dir .`
   // in that specific case we don't want to publish the repo node_modules
   // when site.root !== deployFolder the behaviour matches our buildbot
   const skipNodeModules = site.root === deployFolder
 
-  return (filename) => {
-    if (filename == null) {
-      return false
-    }
-    if (filename === deployFolder) {
-      return true
-    }
+  return new Transform({
+    objectMode: true,
+    transform(chunk, encoding, callback) {
+      const filename = chunk.name
+      if (filename === deployFolder) {
+        callback(null, chunk)
+        return
+      }
 
-    const base = basename(filename)
-    const skipFile =
-      (skipNodeModules && base === 'node_modules') ||
-      (base.startsWith('.') && base !== '.well-known') ||
-      base.startsWith('__MACOSX') ||
-      base.includes('/.')
+      // AJTODO: figure out if all these filters still work
+      const base = basename(filename)
+      const skipFile =
+        (skipNodeModules && base === 'node_modules') ||
+        (base.startsWith('.') && base !== '.well-known') ||
+        base.startsWith('__MACOSX') ||
+        base.includes('/.')
 
-    return !skipFile
-  }
+      callback(null, skipFile ? null : chunk)
+    },
+  });
 }
+/* eslint-enable promise/prefer-await-to-callbacks */
 
 const SEC_TO_MILLISEC = 1e3
 // 100 bytes

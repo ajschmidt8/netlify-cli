@@ -1,16 +1,18 @@
 import { promisify } from 'util'
 
-import walker from 'folder-walker'
+import fg from "fast-glob";
 import pumpModule from 'pump'
 
-import { fileFilterCtor, fileNormalizerCtor, hasherCtor, manifestCollectorCtor } from './hasher-segments.mjs'
+import { fileNormalizerCtor, hasherCtor, manifestCollectorCtor } from './hasher-segments.mjs'
 
 const pump = promisify(pumpModule)
 
 const hashFiles = async ({
   assetType = 'file',
   concurrentHash,
-  directories,
+  configPath,
+  deployFolder,
+  edgeFunctionsDistPath,
   filter,
   hashAlgorithm = 'sha1',
   normalizer,
@@ -18,10 +20,10 @@ const hashFiles = async ({
 }) => {
   if (!filter) throw new Error('Missing filter function option')
 
-  const fileStream = walker(directories, { filter })
-  const fileFilter = fileFilterCtor()
+  // AJTODO (remove node_modules option)
+  const fileStream = fg.stream([configPath, `${deployFolder}/**`, edgeFunctionsDistPath].filter(Boolean), { ignore: "**/node_modules/**", objectMode: true });
   const hasher = hasherCtor({ concurrentHash, hashAlgorithm })
-  const fileNormalizer = fileNormalizerCtor({ assetType, normalizer })
+  const fileNormalizer = fileNormalizerCtor({ assetType, normalizer, deployFolder })
 
   // Written to by manifestCollector
   // normalizedPath: hash (wanted by deploy API)
@@ -30,7 +32,7 @@ const hashFiles = async ({
   const filesShaMap = {}
   const manifestCollector = manifestCollectorCtor(files, filesShaMap, { statusCb, assetType })
 
-  await pump(fileStream, fileFilter, hasher, fileNormalizer, manifestCollector)
+  await pump(fileStream, filter, hasher, fileNormalizer, manifestCollector)
 
   return { files, filesShaMap }
 }

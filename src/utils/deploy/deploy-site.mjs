@@ -21,7 +21,7 @@ import { getUploadList, waitForDeploy, waitForDiff } from './util.mjs'
 export const deploySite = async (
   api,
   siteId,
-  dir,
+  deployFolder,
   {
     assetType,
     branch,
@@ -61,7 +61,9 @@ export const deploySite = async (
       hashFiles({
         assetType,
         concurrentHash,
-        directories: [configPath, dir, edgeFunctionsDistPath].filter(Boolean),
+        configPath,
+        deployFolder,
+        edgeFunctionsDistPath,
         filter,
         hashAlgorithm,
         normalizer: deployFileNormalizer.bind(null, rootDir),
