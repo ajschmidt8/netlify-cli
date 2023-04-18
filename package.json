@@ -1,5 +1,5 @@
 {
-  "name": "netlify-cli",
+  "name": "@aschmidt8/netlify-cli",
   "description": "Netlify command line tool",
   "version": "14.2.1",
   "author": "Netlify Inc.",
