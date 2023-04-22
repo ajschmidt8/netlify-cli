@@ -2,6 +2,7 @@ import { readFile } from 'fs/promises'
 import path from 'path'
 
 import hasha from 'hasha'
+import pMap from 'p-map';
 
 import { getPathInProject } from '../../lib/settings.mjs'
 import { INTERNAL_FUNCTIONS_FOLDER } from '../functions/functions.mjs'
@@ -132,8 +133,7 @@ const hashFns = async (
   // hash: [fileObj, fileObj, fileObj]
   const fnShaMap = {}
 
-  // AJTODO: set up concurrency limits
-  await Promise.all(fileObjs.map(async (fileObj) => {
+  const mapper = async (fileObj) => {
     statusCb({
       type: 'hashing',
       msg: `Hashing ${fileObj.relname}`,
@@ -147,7 +147,9 @@ const hashFns = async (
     // We map a hash to multiple fileObjs because the same file
     // might live in two different locations
     fnShaMap[hash] = [...(fnShaMap[hash] || []), fileObj]
-  }))
+  }
+
+  await pMap(fileObjs, mapper, { concurrency: concurrentHash })
 
   return { functionSchedules, functions, functionsWithNativeModules, fnShaMap, fnConfig }
 }

@@ -2,6 +2,7 @@ import { relative } from 'path'
 
 import fg from "fast-glob";
 import hasha from 'hasha'
+import pMap from 'p-map';
 
 import { deployFileNormalizer } from '../../lib/edge-functions/deploy.mjs'
 
@@ -45,8 +46,7 @@ const hashFiles = async ({
   // hash: [fileObj, fileObj, fileObj]
   const filesShaMap = {}
 
-  // AJTODO: set up concurrency limits
-  await Promise.all(deployFiles.map(async (fileObj) => {
+  const mapper = async (fileObj) => {
     const relname = relative(deployFolder, fileObj.path)
     const normalizedPath = normalizePath(relname)
     const normalizedFileObj = deployFileNormalizer(rootDir,
@@ -65,7 +65,9 @@ const hashFiles = async ({
     // We map a hash to multiple fileObjs because the same file
     // might live in two different locations
     filesShaMap[hash] = [...(filesShaMap[hash] || []), normalizedFileObj]
-  }))
+  }
+
+  await pMap(deployFiles, mapper, { concurrency: concurrentHash })
 
   return { files, filesShaMap }
 }
