@@ -1,38 +1,71 @@
-import { promisify } from 'util'
+import { relative } from 'path'
 
 import fg from "fast-glob";
-import pumpModule from 'pump'
+import hasha from 'hasha'
 
-import { fileNormalizerCtor, hasherCtor, manifestCollectorCtor } from './hasher-segments.mjs'
+import { deployFileNormalizer } from '../../lib/edge-functions/deploy.mjs'
 
-const pump = promisify(pumpModule)
+import { normalizePath } from './util.mjs'
+
 
 const hashFiles = async ({
-  assetType = 'file',
   concurrentHash,
   configPath,
   deployFolder,
   edgeFunctionsDistPath,
-  filter,
   hashAlgorithm = 'sha1',
-  normalizer,
+  rootDir,
   statusCb,
 }) => {
-  if (!filter) throw new Error('Missing filter function option')
 
-  // AJTODO (remove node_modules option)
-  const fileStream = fg.stream([configPath, `${deployFolder}/**`, edgeFunctionsDistPath].filter(Boolean), { ignore: "**/node_modules/**", objectMode: true });
-  const hasher = hasherCtor({ concurrentHash, hashAlgorithm })
-  const fileNormalizer = fileNormalizerCtor({ assetType, normalizer, deployFolder })
+  // site.root === deployFolder can happen when users run `netlify deploy --dir .`
+  // in that specific case we don't want to publish the repo node_modules
+  // when site.root !== deployFolder the behaviour matches our buildbot
+  const skipNodeModules = rootDir === deployFolder
 
-  // Written to by manifestCollector
+  const [regularDeployFiles, wellKnownDeployFiles] = await Promise.all([
+    fg(
+      [configPath, `${deployFolder}/**`, edgeFunctionsDistPath].filter(Boolean),
+      {
+        objectMode: true,
+        ignore: ["**/__MACOSX/**", skipNodeModules ? `${rootDir}/node_modules/**` : ""].filter(Boolean)
+      }
+    ),
+    // ".well-known" needs its own query until https://github.com/mrmlnc/fast-glob/issues/86 is resolved
+    fg(
+      [`${deployFolder}/**/.well-known/**`],
+      { objectMode: true, dot: true }
+    )
+  ])
+
+  const deployFiles = [...regularDeployFiles, ...wellKnownDeployFiles]
+
   // normalizedPath: hash (wanted by deploy API)
   const files = {}
   // hash: [fileObj, fileObj, fileObj]
   const filesShaMap = {}
-  const manifestCollector = manifestCollectorCtor(files, filesShaMap, { statusCb, assetType })
 
-  await pump(fileStream, filter, hasher, fileNormalizer, manifestCollector)
+  // AJTODO: set up concurrency limits
+  await Promise.all(deployFiles.map(async (fileObj) => {
+    const relname = relative(deployFolder, fileObj.path)
+    const normalizedPath = normalizePath(relname)
+    const normalizedFileObj = deployFileNormalizer(rootDir,
+      { ...fileObj, assetType: "file", normalizedPath, relname }
+    )
+
+    statusCb({
+      type: 'hashing',
+      msg: `Hashing ${relname}`,
+      phase: 'progress',
+    })
+    const hash = await hasha.fromFile(fileObj.path, { algorithm: hashAlgorithm })
+
+    files[normalizedPath] = hash
+
+    // We map a hash to multiple fileObjs because the same file
+    // might live in two different locations
+    filesShaMap[hash] = [...(filesShaMap[hash] || []), normalizedFileObj]
+  }))
 
   return { files, filesShaMap }
 }

@@ -179,37 +179,6 @@ const validateFolders = async ({ deployFolder, functionsFolder }) => {
   return { deployFolderStat, functionsFolderStat }
 }
 
-// TODO: use promises instead of callbacks
-/* eslint-disable promise/prefer-await-to-callbacks */
-const getDeployFilesFilter = ({ deployFolder, site }) => {
-  // site.root === deployFolder can happen when users run `netlify deploy --dir .`
-  // in that specific case we don't want to publish the repo node_modules
-  // when site.root !== deployFolder the behaviour matches our buildbot
-  const skipNodeModules = site.root === deployFolder
-
-  return new Transform({
-    objectMode: true,
-    transform(chunk, encoding, callback) {
-      const filename = chunk.name
-      if (filename === deployFolder) {
-        callback(null, chunk)
-        return
-      }
-
-      // AJTODO: figure out if all these filters still work
-      const base = basename(filename)
-      const skipFile =
-        (skipNodeModules && base === 'node_modules') ||
-        (base.startsWith('.') && base !== '.well-known') ||
-        base.startsWith('__MACOSX') ||
-        base.includes('/.')
-
-      callback(null, skipFile ? null : chunk)
-    },
-  });
-}
-/* eslint-enable promise/prefer-await-to-callbacks */
-
 const SEC_TO_MILLISEC = 1e3
 // 100 bytes
 const SYNC_FILE_LIMIT = 1e2
@@ -352,7 +321,6 @@ const runDeploy = async ({
       syncFileLimit: SYNC_FILE_LIMIT,
       // pass an existing deployId to update
       deployId,
-      filter: getDeployFilesFilter({ site, deployFolder }),
       rootDir: site.root,
       manifestPath,
       skipFunctionsCache,

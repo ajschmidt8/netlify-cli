@@ -1,16 +1,11 @@
 import { readFile } from 'fs/promises'
 import path from 'path'
-import { promisify } from 'util'
 
-import fromArray from 'from2-array'
-import pumpModule from 'pump'
+import hasha from 'hasha'
 
 import { getPathInProject } from '../../lib/settings.mjs'
 import { INTERNAL_FUNCTIONS_FOLDER } from '../functions/functions.mjs'
 
-import { hasherCtor, manifestCollectorCtor } from './hasher-segments.mjs'
-
-const pump = promisify(pumpModule)
 
 // Maximum age of functions manifest (2 minutes).
 const MANIFEST_FILE_TTL = 12e4
@@ -78,7 +73,6 @@ const getFunctionZips = async ({
 const hashFns = async (
   directories,
   {
-    assetType = 'function',
     concurrentHash,
     functionsConfig,
     hashAlgorithm = 'sha256',
@@ -108,7 +102,7 @@ const hashFns = async (
     tmpDir,
   })
   const fileObjs = functionZips.map(({ displayName, generator, path: functionPath, runtime }) => ({
-    filepath: functionPath,
+    path: functionPath,
     root: tmpDir,
     relname: path.relative(tmpDir, functionPath),
     basename: path.basename(functionPath),
@@ -133,18 +127,28 @@ const hashFns = async (
     ({ nativeNodeModules }) => nativeNodeModules !== undefined && Object.keys(nativeNodeModules).length !== 0,
   )
 
-  const functionStream = fromArray.obj(fileObjs)
-
-  const hasher = hasherCtor({ concurrentHash, hashAlgorithm })
-
-  // Written to by manifestCollector
   // normalizedPath: hash (wanted by deploy API)
   const functions = {}
   // hash: [fileObj, fileObj, fileObj]
   const fnShaMap = {}
-  const manifestCollector = manifestCollectorCtor(functions, fnShaMap, { statusCb, assetType })
 
-  await pump(functionStream, hasher, manifestCollector)
+  // AJTODO: set up concurrency limits
+  await Promise.all(fileObjs.map(async (fileObj) => {
+    statusCb({
+      type: 'hashing',
+      msg: `Hashing ${fileObj.relname}`,
+      phase: 'progress',
+    })
+    const hash = await hasha.fromFile(fileObj.path, { algorithm: hashAlgorithm })
+
+    // add file entries to objects
+    functions[fileObj.normalizedPath] = hash
+
+    // We map a hash to multiple fileObjs because the same file
+    // might live in two different locations
+    fnShaMap[hash] = [...(fnShaMap[hash] || []), fileObj]
+  }))
+
   return { functionSchedules, functions, functionsWithNativeModules, fnShaMap, fnConfig }
 }
 
