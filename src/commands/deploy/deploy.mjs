@@ -1,8 +1,7 @@
 // @ts-check
 import { stat } from 'fs/promises'
-import { basename, resolve } from 'path'
+import { resolve } from 'path'
 import { cwd, env } from 'process'
-import { Transform } from "stream"
 
 import { runCoreSteps } from '@netlify/build'
 import { restoreConfig, updateConfig } from '@netlify/config'
