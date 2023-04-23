@@ -34,7 +34,9 @@ const hashFiles = async ({
       }
     ),
     // the ".well-known" folder needs its own 'fast-glob' query until
-    // https://github.com/mrmlnc/fast-glob/issues/86 is resolved
+    // https://github.com/mrmlnc/fast-glob/issues/86 is resolved.
+    // then it can be added to the query above like this:
+    // { dot: true, ignore: ["**/.*/**", "!**/.well-known/**"] }
     fg(
       [`${deployFolder}/**/.well-known/**`],
       { objectMode: true, dot: true, absolute: true }
