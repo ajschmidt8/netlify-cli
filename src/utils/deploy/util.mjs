@@ -8,14 +8,14 @@ import { PUBLIC_URL_PATH } from '../../lib/edge-functions/consts.mjs'
 import { DEPLOY_POLL } from './constants.mjs'
 
 // normalize file objects
-export const normalizeFileObj = (fileObj, { configPath, deployFolder, edgeFunctionsFolder }) => {
+export const normalizePath = (fileObj, { configPath, deployFolder, edgeFunctionsFolder }) => {
   let normalizedPath = relative(deployFolder, fileObj.path)
 
-  if (fileObj.path === configPath) {
+  if (configPath === fileObj.path) {
     normalizedPath = basename(fileObj.path)
   }
 
-  if (fileObj.path.startsWith(`${edgeFunctionsFolder}/`)) {
+  if (edgeFunctionsFolder && fileObj.path.startsWith(`${edgeFunctionsFolder}/`)) {
     const relpath = relative(edgeFunctionsFolder, fileObj.path)
     normalizedPath = `${PUBLIC_URL_PATH}/${relpath}`
   }
@@ -25,7 +25,7 @@ export const normalizeFileObj = (fileObj, { configPath, deployFolder, edgeFuncti
   }
 
   normalizedPath = normalizedPath.split(sep).join('/')
-  return { assetType: "file", ...fileObj, normalizedPath }
+  return normalizedPath
 }
 
 // poll an async deployId until its done diffing

@@ -2,14 +2,14 @@ import fg from "fast-glob";
 import hasha from 'hasha'
 import pMap from 'p-map';
 
-import { normalizeFileObj } from './util.mjs'
+import { normalizePath } from './util.mjs'
 
 
 const hashFiles = async ({
   concurrentHash,
   configPath,
   deployFolder,
-  edgeFunctionsDistPath,
+  edgeFunctionsFolder,
   hashAlgorithm = 'sha1',
   rootDir,
   statusCb,
@@ -43,7 +43,8 @@ const hashFiles = async ({
   // hash: [fileObj, fileObj, fileObj]
   const filesShaMap = {}
   const mapper = async (fileObj) => {
-    const normalizedFileObj = normalizeFileObj(fileObj, { configPath, deployFolder, edgeFunctionsFolder: edgeFunctionsDistPath })
+    const normalizedPath = normalizePath(fileObj, { configPath, deployFolder, edgeFunctionsFolder })
+    const normalizedFileObj = { assetType: "file", ...fileObj, normalizedPath }
 
     statusCb({
       type: 'hashing',

@@ -53,14 +53,14 @@ export const deploySite = async (
     phase: 'start',
   })
 
-  const edgeFunctionsDistPath = await getDistPathIfExists({ rootDir })
+  const edgeFunctionsFolder = await getDistPathIfExists({ rootDir })
   const [{ files, filesShaMap }, { fnConfig, fnShaMap, functionSchedules, functions, functionsWithNativeModules }] =
     await Promise.all([
       hashFiles({
         concurrentHash,
         configPath,
         deployFolder,
-        edgeFunctionsDistPath,
+        edgeFunctionsFolder,
         hashAlgorithm,
         rootDir,
         statusCb,
