@@ -7,9 +7,9 @@ import { normalizePath } from './util.mjs'
 
 const hashFiles = async ({
   concurrentHash,
-  configPath,
+  configPath = '',
   deployFolder,
-  edgeFunctionsFolder,
+  edgeFunctionsFolder = '',
   hashAlgorithm = 'sha1',
   rootDir,
   statusCb,
@@ -22,14 +22,19 @@ const hashFiles = async ({
 
   const [regularDeployFiles, wellKnownDeployFiles] = await Promise.all([
     fg(
-      [configPath, `${deployFolder}/**`, `${edgeFunctionsDistPath}/**`].filter(Boolean),
+      [
+        configPath,
+        `${deployFolder}/**`,
+        edgeFunctionsFolder ? `${edgeFunctionsFolder}/**` : ""
+      ].filter(Boolean),
       {
         objectMode: true,
         ignore: ["**/__MACOSX/**", skipNodeModules ? `${rootDir}/node_modules/**` : ""].filter(Boolean),
         absolute: true
       }
     ),
-    // ".well-known" needs its own query until https://github.com/mrmlnc/fast-glob/issues/86 is resolved
+    // the ".well-known" folder needs its own 'fast-glob' query until
+    // https://github.com/mrmlnc/fast-glob/issues/86 is resolved
     fg(
       [`${deployFolder}/**/.well-known/**`],
       { objectMode: true, dot: true, absolute: true }
