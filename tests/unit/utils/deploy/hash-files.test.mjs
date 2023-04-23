@@ -16,8 +16,8 @@ test('Hashes files in a folder', async () => {
 
     const expectedFiles = ['netlify.toml', 'public/index.html']
     const { files, filesShaMap } = await hashFiles({
-      directories: [builder.directory, `${builder.directory}/netlify.toml`],
-      filter: () => true,
+      deployFolder: builder.directory,
+      configPath: `${builder.directory}/netlify.toml`,
       concurrentHash: DEFAULT_CONCURRENT_HASH,
       statusCb() {},
     })
