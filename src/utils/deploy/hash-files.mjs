@@ -21,7 +21,7 @@ const hashFiles = async ({
   if (!filter) throw new Error('Missing filter function option')
 
   // AJTODO (remove node_modules option)
-  const fileStream = fg.stream([configPath, `${deployFolder}/**`, edgeFunctionsDistPath].filter(Boolean), { ignore: "**/node_modules/**", objectMode: true });
+  const fileStream = fg.stream([configPath, `${deployFolder}/**`, edgeFunctionsDistPath].filter(Boolean), { ignore: ["**/node_modules/**"], objectMode: true });
   const hasher = hasherCtor({ concurrentHash, hashAlgorithm })
   const fileNormalizer = fileNormalizerCtor({ assetType, normalizer, deployFolder })
 
